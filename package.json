@@ -9,17 +9,12 @@
   },
   "main": "./localtunnel.js",
   "types": "index.d.ts",
-  "bin": {
-    "lt": "bin/lt.js"
-  },
   "scripts": {
     "test": "mocha --reporter list --timeout 60000 -- *.spec.js"
   },
   "dependencies": {
     "axios": "^1.7.3",
-    "debug": "^4.3.6",
-    "openurl": "1.1.1",
-    "yargs": "17.7.2"
+    "debug": "^4.3.6"
   },
   "devDependencies": {
     "mocha": "~10.7.3"
