@@ -5,13 +5,17 @@ const http = require('http');
 const https = require('https');
 const url = require('url');
 const assert = require('assert');
+const axios = require('axios');
 
 const localtunnel = require('./localtunnel');
 
+const host = 'https://hooks.n8n.cloud';
+
 let fakePort;
 
+const server = http.createServer();
+
 before(done => {
-  const server = http.createServer();
   server.on('request', (req, res) => {
     res.write(req.headers.host);
     res.end();
@@ -23,140 +27,48 @@ before(done => {
   });
 });
 
-it('query localtunnel server w/ ident', async done => {
-  const tunnel = await localtunnel({ port: fakePort });
-  assert.ok(new RegExp('^https://.*localtunnel.me$').test(tunnel.url));
+after(() => {
+  server.close();
+})
+
+it('query localtunnel server w/ ident', async () => {
+  const tunnel = await localtunnel(fakePort, { host });
+  assert.ok(new RegExp('^https://[a-z0-9\-]+.hooks.n8n.cloud$').test(tunnel.url));
 
   const parsed = url.parse(tunnel.url);
-  const opt = {
-    host: parsed.host,
-    port: 443,
-    headers: { host: parsed.hostname },
-    path: '/',
-  };
+  const response = await axios.get(`${tunnel.url}/`);
+  assert.strictEqual(response.data, parsed.host);
 
-  const req = https.request(opt, res => {
-    res.setEncoding('utf8');
-    let body = '';
-
-    res.on('data', chunk => {
-      body += chunk;
-    });
-
-    res.on('end', () => {
-      assert(/.*[.]localtunnel[.]me/.test(body), body);
-      tunnel.close();
-      done();
-    });
-  });
-
-  req.end();
+  tunnel.close();
 });
 
 it('request specific domain', async () => {
-  const subdomain = Math.random()
-    .toString(36)
-    .substr(2);
-  const tunnel = await localtunnel({ port: fakePort, subdomain });
-  assert.ok(new RegExp(`^https://${subdomain}.localtunnel.me$`).test(tunnel.url));
+  const subdomain = Math.random().toString(36).substr(2);
+  const tunnel = await localtunnel(fakePort, { host, subdomain });
+  assert.ok(new RegExp(`^https://${subdomain}.hooks.n8n.cloud$`).test(tunnel.url));
   tunnel.close();
 });
 
 describe('--local-host localhost', () => {
-  it('override Host header with local-host', async done => {
-    const tunnel = await localtunnel({ port: fakePort, local_host: 'localhost' });
-    assert.ok(new RegExp('^https://.*localtunnel.me$').test(tunnel.url));
+  it('override Host header with local-host', async () => {
+    const tunnel = await localtunnel(fakePort, { host, local_host: 'localhost' });
+    assert.ok(new RegExp('^https://[a-z0-9\-]+.hooks.n8n.cloud$').test(tunnel.url));
 
     const parsed = url.parse(tunnel.url);
-    const opt = {
-      host: parsed.host,
-      port: 443,
-      headers: { host: parsed.hostname },
-      path: '/',
-    };
-
-    const req = https.request(opt, res => {
-      res.setEncoding('utf8');
-      let body = '';
-
-      res.on('data', chunk => {
-        body += chunk;
-      });
-
-      res.on('end', () => {
-        assert.strictEqual(body, 'localhost');
-        tunnel.close();
-        done();
-      });
-    });
-
-    req.end();
+    const response = await axios.get(`${tunnel.url}/`);
+    assert.strictEqual(response.data, 'localhost');
+    tunnel.close();
   });
 });
 
 describe('--local-host 127.0.0.1', () => {
-  it('override Host header with local-host', async done => {
-    const tunnel = await localtunnel({ port: fakePort, local_host: '127.0.0.1' });
-    assert.ok(new RegExp('^https://.*localtunnel.me$').test(tunnel.url));
+  it('override Host header with local-host', async () => {
+    const tunnel = await localtunnel(fakePort, { host, local_host: '127.0.0.1' });
+    assert.ok(new RegExp('^https://[a-z0-9\-]+.hooks.n8n.cloud$').test(tunnel.url));
 
     const parsed = url.parse(tunnel.url);
-    const opt = {
-      host: parsed.host,
-      port: 443,
-      headers: {
-        host: parsed.hostname,
-      },
-      path: '/',
-    };
-
-    const req = https.request(opt, res => {
-      res.setEncoding('utf8');
-      let body = '';
-
-      res.on('data', chunk => {
-        body += chunk;
-      });
-
-      res.on('end', () => {
-        assert.strictEqual(body, '127.0.0.1');
-        tunnel.close();
-        done();
-      });
-    });
-
-    req.end();
-  });
-
-  it('send chunked request', async done => {
-    const tunnel = await localtunnel({ port: fakePort, local_host: '127.0.0.1' });
-    assert.ok(new RegExp('^https://.*localtunnel.me$').test(tunnel.url));
-
-    const parsed = url.parse(tunnel.url);
-    const opt = {
-      host: parsed.host,
-      port: 443,
-      headers: {
-        host: parsed.hostname,
-        'Transfer-Encoding': 'chunked',
-      },
-      path: '/',
-    };
-
-    const req = https.request(opt, res => {
-      res.setEncoding('utf8');
-      let body = '';
-
-      res.on('data', chunk => {
-        body += chunk;
-      });
-
-      res.on('end', () => {
-        assert.strictEqual(body, '127.0.0.1');
-        tunnel.close();
-        done();
-      });
-    });
-
-    req.end(crypto.randomBytes(1024 * 8).toString('base64'));
+    const response = await axios.get(`${tunnel.url}/`);
+    assert.strictEqual(response.data, '127.0.0.1');
+    tunnel.close();
   });
 });
