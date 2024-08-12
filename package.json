@@ -22,7 +22,7 @@
     "yargs": "17.7.2"
   },
   "devDependencies": {
-    "mocha": "~10.2.0"
+    "mocha": "~10.7.3"
   },
   "engines": {
     "node": ">=18.0.0"
